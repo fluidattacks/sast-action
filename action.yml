@@ -33,7 +33,13 @@ runs:
           echo "mode=full" >> "${GITHUB_OUTPUT}"
         else
           echo "mode=diff" >> "${GITHUB_OUTPUT}"
-          echo "base_sha=${{ github.event.before }}" >> "${GITHUB_OUTPUT}"
+          BEFORE="${{ github.event.before }}"
+          if [[ "${BEFORE}" == "0000000000000000000000000000000000000000" ]]; then
+            DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | awk '{print $NF}')
+            echo "base_sha=origin/${DEFAULT_BRANCH}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "base_sha=${BEFORE}" >> "${GITHUB_OUTPUT}"
+          fi
         fi
 
     - name: Get changed files
