@@ -22,7 +22,7 @@ with open('${USER_CONFIG}') as f:
 
 cfg['namespace'] = os.environ['GITHUB_REPOSITORY']
 cfg['sast'] = cfg.get('sast') or {}
-cfg['sast']['include'] = [f for f in os.environ['CHANGED_FILES'].split('\n') if f]
+cfg['sast']['include'] = [f for f in os.environ['CHANGED_FILES'].split('|') if f]
 
 with open('${CONFIG_FILE}', 'w') as f:
     yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
