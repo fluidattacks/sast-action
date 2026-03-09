@@ -33,7 +33,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: fluidattacks/sast-action@main
+      - uses: fluidattacks/sast-action@1.0.0
         id: scan
 
       - name: Upload SARIF
@@ -47,8 +47,33 @@ That's it. No inputs required.
 
 ## How it works
 
-- **Push events**: runs a full scan using your `.sast.yaml` configuration as-is.
-- **Pull request events**: runs a differential scan, replacing `sast.include` with only the files changed in the PR.
+The scan mode is determined automatically by the GitHub event that triggers the workflow:
+
+- **Push events** → **Full scan**: analyzes all paths defined in `sast.include`.
+- **Pull request events** → **Differential scan**: ignores `sast.include` and only analyzes the files changed in the PR.
+
+### Workflow examples
+
+**Full scan on push to main + differential scan on PRs** (recommended):
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+```
+
+**Only differential scan on PRs:**
+
+```yaml
+on: [pull_request]
+```
+
+**Only full scan on every push:**
+
+```yaml
+on: [push]
+```
 
 ## Configuration
 
