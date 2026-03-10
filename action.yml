@@ -26,14 +26,16 @@ runs:
           exit 1
         fi
 
+        DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | awk '{print $NF}')
+        CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
+
         if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
           echo "mode=diff" >> "${GITHUB_OUTPUT}"
           echo "base_sha=${{ github.event.pull_request.base.sha }}" >> "${GITHUB_OUTPUT}"
-        elif [[ "${GITHUB_REF}" == "refs/heads/${GITHUB_EVENT_REPOSITORY_DEFAULT_BRANCH:-main}" || "${GITHUB_REF}" == "refs/heads/main" || "${GITHUB_REF}" == "refs/heads/master" || "${GITHUB_REF}" == "refs/heads/trunk" ]]; then
+        elif [[ "${CURRENT_BRANCH}" == "${DEFAULT_BRANCH}" ]]; then
           echo "mode=full" >> "${GITHUB_OUTPUT}"
         else
           echo "mode=diff" >> "${GITHUB_OUTPUT}"
-          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | awk '{print $NF}')
           echo "base_sha=origin/${DEFAULT_BRANCH}" >> "${GITHUB_OUTPUT}"
         fi
 
