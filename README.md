@@ -42,8 +42,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Required: full history enables differential scanning
-          # so only changed files are analyzed on branches and PRs
+          # Required for differential scanning (default mode).
+          # Can be omitted if scanner_mode: full is set.
           fetch-depth: 0
 
       - uses: fluidattacks/sast-action@1.1.0
@@ -76,19 +76,35 @@ The action determines the scan type based on context:
 
 Both differential scan modes compare against the full default branch (not just the previous commit), so even if a push contains multiple commits, all changes relative to the default branch are analyzed. This keeps your CI fast while ensuring nothing slips through.
 
+You can force a full scan on every run with `scanner_mode: full` — see [Action inputs](#action-inputs).
+
 ### Why `fetch-depth: 0`?
 
 The `actions/checkout` step uses `fetch-depth: 0` to download the full git history. This is necessary for the differential scan to compare your current changes against the PR base. Without it, the action would not have enough context to determine what changed.
 
+If you set `scanner_mode: full`, the action skips all git comparisons entirely, so a default shallow checkout is sufficient — `fetch-depth: 0` is not needed.
+
 ## Viewing results
 
-After the workflow runs, you can see the results in two places:
+After the workflow runs, results are written to the path you configured in `output.file_path` (e.g. `results.sarif`).
 
-1. **GitHub Security tab** — Go to your repository → **Security** → **Code scanning alerts**. Each vulnerability appears as an alert with details, severity, and the exact file and line where it was found.
+### SARIF file
 
-2. **Pull request annotations** — On pull requests, vulnerabilities appear as inline annotations directly in the code diff, making them easy to review.
+The raw SARIF file is always available in your workspace. You can download it as an artifact, process it with other tools, or upload it to a third-party platform.
 
-3. **SARIF file** — The raw results are also available as a SARIF file artifact if you need to process them with other tools.
+### GitHub Security tab (optional)
+
+You can upload the SARIF file to GitHub's Security tab so findings appear as **Code scanning alerts** with inline PR annotations:
+
+```yaml
+- name: Upload results to GitHub Security tab
+  if: always()
+  uses: github/codeql-action/upload-sarif@v4
+  with:
+    sarif_file: ${{ steps.scan.outputs.sarif_file }}
+```
+
+> **Restrictions:** SARIF upload to the Security tab requires **GitHub Advanced Security**, which is available on all public repositories and on private repositories under a GitHub Advanced Security license. On private repositories without that license, the upload step will fail. See [GitHub's documentation](https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/uploading-a-sarif-file-to-github) for details.
 
 ## Configuration reference
 
@@ -152,6 +168,23 @@ sast:
 | `sast.include` | Yes | — | List of paths to scan |
 | `sast.exclude` | No | — | List of paths to exclude |
 | `checks` | No | All | List of specific [checks](https://db.fluidattacks.com/wek/) to run |
+
+## Action inputs
+
+| Input | Required | Default | Description |
+|---|---|---|---|
+| `scanner_mode` | No | _(auto)_ | Override the scan mode. `full` forces a full repository scan. If omitted, the mode is determined automatically based on the event and branch. |
+
+### `scanner_mode: full`
+
+Forces a full repository scan regardless of the event. Useful for scheduled audits or when you want every run to cover the entire codebase.
+
+```yaml
+- uses: fluidattacks/sast-action@1.1.0
+  id: scan
+  with:
+    scanner_mode: full
+```
 
 ## Action outputs
 
