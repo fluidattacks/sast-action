@@ -46,9 +46,11 @@ jobs:
           # Can be omitted if scanner_mode: full is set.
           fetch-depth: 0
 
-      - uses: fluidattacks/sast-action@1.1.0
+      - uses: fluidattacks/sast-action@<version>
         id: scan
 ```
+
+Replace <version> with the latest release tag. Check the releases page for the current version and update whenever a new one is published.
 
 Commit both files, push, and the scan will run automatically. Results will appear in the **Security** tab of your repository under **Code scanning alerts**.
 
