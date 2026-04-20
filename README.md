@@ -64,7 +64,7 @@ Commit both files, push, and the scan will run automatically. Results will appea
 
 ### Default branch detection
 
-The action automatically detects your repository's default branch by running `git remote show origin`. This means it works with any branch name — `main`, `master`, `trunk`, `develop`, or whatever your team uses. You don't need to configure the branch name anywhere in `.sast.yaml`.
+The action automatically detects your repository's default branch by running `git remote show origin`. This means it works with any branch name — `main`, `master`, `trunk`, `develop`, or whatever your team uses. You don't need to configure the branch name anywhere.
 
 ### Scan types
 
@@ -72,7 +72,7 @@ The action determines the scan type based on context:
 
 | Trigger | Scan type | What it analyzes |
 |---|---|---|
-| Push to default branch | Differential scan | Only files changed vs. previous state |
+| Push to default branch | Full scan | All files in the repository |
 | Push to any other branch | Differential scan | Only files changed vs. default branch |
 | Pull request | Differential scan | Only files changed vs. PR base branch |
 
