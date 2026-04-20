@@ -53,3 +53,4 @@ runs:
         INPUT_MODE: ${{ steps.resolve.outputs.mode }}
         CHANGED_FILES: ${{ steps.changed.outputs.all_changed_files }}
         GITHUB_REPOSITORY: ${{ github.repository }}
+        USER_CONFIG_FILE: ${{ steps.resolve.outputs.config_file }}

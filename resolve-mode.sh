@@ -3,9 +3,13 @@ set -euo pipefail
 
 out() { echo "$1" >> "${GITHUB_OUTPUT}"; }
 
-if [[ ! -f ".sast.yaml" ]]; then
-  echo "::error::Config file .sast.yaml not found in repository root."
-  exit 1
+# Resolve config file: .fluidattacks.yaml > .sast.yaml > (built-in defaults)
+if [[ -f "${GITHUB_WORKSPACE}/.fluidattacks.yaml" ]]; then
+  out "config_file=${GITHUB_WORKSPACE}/.fluidattacks.yaml"
+elif [[ -f "${GITHUB_WORKSPACE}/.sast.yaml" ]]; then
+  out "config_file=${GITHUB_WORKSPACE}/.sast.yaml"
+else
+  out "config_file="
 fi
 
 # Explicit full override

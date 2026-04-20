@@ -2,7 +2,6 @@
 set -euo pipefail
 
 CONFIG_FILE="/tmp/sast-config.yaml"
-USER_CONFIG="${GITHUB_WORKSPACE}/.sast.yaml"
 
 check_changed_files() {
   if [[ ${INPUT_MODE} == "diff" && -z "${CHANGED_FILES}" ]]; then
@@ -13,16 +12,17 @@ check_changed_files() {
 }
 
 prepare_config() {
-  if [[ ${INPUT_MODE} == "diff" ]]; then
+  if [[ -n "${USER_CONFIG_FILE:-}" ]]; then
     python3 -c "
 import yaml, os
 
-with open('${USER_CONFIG}') as f:
+with open(os.environ['USER_CONFIG_FILE']) as f:
     cfg = yaml.safe_load(f) or {}
 
 cfg['namespace'] = os.environ['GITHUB_REPOSITORY']
-cfg['sast'] = cfg.get('sast') or {}
-cfg['sast']['include'] = os.environ['CHANGED_FILES'].split()
+if os.environ['INPUT_MODE'] == 'diff':
+    cfg['sast'] = cfg.get('sast') or {}
+    cfg['sast']['include'] = os.environ['CHANGED_FILES'].split()
 
 with open('${CONFIG_FILE}', 'w') as f:
     yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
@@ -31,10 +31,16 @@ with open('${CONFIG_FILE}', 'w') as f:
     python3 -c "
 import yaml, os
 
-with open('${USER_CONFIG}') as f:
-    cfg = yaml.safe_load(f) or {}
-
+cfg = {}
 cfg['namespace'] = os.environ['GITHUB_REPOSITORY']
+cfg['sast'] = {
+    'include': os.environ['CHANGED_FILES'].split() if os.environ['INPUT_MODE'] == 'diff'
+               else ['.'],
+}
+cfg['output'] = {
+    'format': 'SARIF',
+    'file_path': '.fluidattacks-sast-results.sarif',
+}
 
 with open('${CONFIG_FILE}', 'w') as f:
     yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)

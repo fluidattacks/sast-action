@@ -8,7 +8,7 @@ You only need to do two things to start scanning your code for vulnerabilities:
 
 ### 1. Create the configuration file
 
-Add a file called `.sast.yaml` in the root of your repository:
+Add a file called `.fluidattacks.yaml` in the root of your repository:
 
 ```yaml
 language: EN
@@ -108,7 +108,13 @@ You can upload the SARIF file to GitHub's Security tab so findings appear as **C
 
 ## Configuration reference
 
-All settings go in `.sast.yaml` at the root of your repository.
+The action looks for configuration in the following order:
+
+1. **`.fluidattacks.yaml`** — primary config file (recommended)
+2. **`.sast.yaml`** — legacy config file, used if `.fluidattacks.yaml` is not present
+3. **Built-in defaults** — if neither file exists, the action scans the entire repository (`sast.include: [.]`) and writes results to `.fluidattacks-sast-results.sarif`
+
+Place whichever file you use at the root of your repository.
 
 ### Minimal configuration
 
@@ -163,9 +169,9 @@ sast:
 |---|---|---|---|
 | `language` | No | `EN` | Language for descriptions (`EN` or `ES`) |
 | `strict` | No | `false` | Fail the pipeline if vulnerabilities are found |
-| `output.file_path` | Yes | — | Path for the output file |
-| `output.format` | Yes | — | Output format: `SARIF`, `CSV`, or `ALL` |
-| `sast.include` | Yes | — | List of paths to scan |
+| `output.file_path` | No | `.fluidattacks-sast-results.sarif` | Path for the output file |
+| `output.format` | No | `SARIF` | Output format: `SARIF`, `CSV`, or `ALL` |
+| `sast.include` | No | `[.]` | List of paths to scan |
 | `sast.exclude` | No | — | List of paths to exclude |
 | `checks` | No | All | List of specific [checks](https://db.fluidattacks.com/wek/) to run |
 
@@ -256,9 +262,9 @@ Make sure the "Upload SARIF" step is included in your workflow and uses `if: alw
 
 Verify that `fetch-depth: 0` is set in the `actions/checkout` step. Without full git history, the action cannot determine which files changed.
 
-### I don't have a `.sast.yaml` file
+### I don't have a `.fluidattacks.yaml` or `.sast.yaml` file
 
-The action requires this configuration file. Without it, the action will fail. Use the minimal configuration shown in the Quick Start section to get started.
+No config file is required. When neither is present, the action uses built-in defaults: scans the entire repository and writes results to `.fluidattacks-sast-results.sarif`. Add a config file only if you need to customize paths, output format, or other options.
 
 ### The action doesn't detect my default branch
 
