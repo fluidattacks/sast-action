@@ -70,11 +70,13 @@ The action determines the scan type based on context:
 
 | Trigger | Scan type | What it analyzes |
 |---|---|---|
-| Push to default branch | Full scan | All files in the repository |
+| Push to default branch | Differential scan | Only files changed vs. previous state |
 | Push to any other branch | Differential scan | Only files changed vs. default branch |
 | Pull request | Differential scan | Only files changed vs. PR base branch |
 
 Both differential scan modes compare against the full default branch (not just the previous commit), so even if a push contains multiple commits, all changes relative to the default branch are analyzed. This keeps your CI fast while ensuring nothing slips through.
+
+Any other event that does not have any base line for comparison will trigger a full scan.
 
 You can force a full scan on every run with `scanner_mode: full` — see [Action inputs](#action-inputs).
 
