@@ -3,11 +3,14 @@ set -euo pipefail
 
 out() { echo "$1" >> "${GITHUB_OUTPUT}"; }
 
-# Resolve config file: .fluidattacks.yaml > .sast.yaml > (built-in defaults)
-if [[ -f "${GITHUB_WORKSPACE}/.fluidattacks.yaml" ]]; then
-  out "config_file=${GITHUB_WORKSPACE}/.fluidattacks.yaml"
-elif [[ -f "${GITHUB_WORKSPACE}/.sast.yaml" ]]; then
-  out "config_file=${GITHUB_WORKSPACE}/.sast.yaml"
+# Resolve config file
+if [[ -n "${SCAN_CONFIG_PATH:-}" ]]; then
+  RESOLVED="${GITHUB_WORKSPACE}/${SCAN_CONFIG_PATH}"
+  if [[ ! -f "${RESOLVED}" ]]; then
+    echo "::error::scan_config_path '${SCAN_CONFIG_PATH}' not found in repository"
+    exit 1
+  fi
+  out "config_file=${RESOLVED}"
 else
   out "config_file="
 fi

@@ -4,26 +4,7 @@ Free, open-source static application security testing (SAST) action for your Git
 
 ## Quick Start (2 minutes)
 
-You only need to do two things to start scanning your code for vulnerabilities:
-
-### 1. Create the configuration file
-
-Add a file called `.fluidattacks.yaml` in the root of your repository:
-
-```yaml
-language: EN
-strict: false
-output:
-  file_path: results.sarif
-  format: SARIF
-sast:
-  include:
-    - .
-```
-
-That's it for configuration. This minimal setup will scan your entire repository.
-
-### 2. Create the GitHub Actions workflow
+### 1. Create the GitHub Actions workflow
 
 Add the file `.github/workflows/sast.yml` to your repository:
 
@@ -50,9 +31,24 @@ jobs:
         id: scan
 ```
 
-Replace <version> with the latest release tag. Check the releases page for the current version and update whenever a new one is published.
+Replace `<version>` with the latest release tag. Check the releases page for the current version and update whenever a new one is published.
 
-Commit both files, push, and the scan will run automatically. Results will appear in the **Security** tab of your repository under **Code scanning alerts**.
+Without a configuration file, the action runs with built-in defaults: scans the entire repository and writes results to `.fluidattacks-sast-results.sarif`.
+
+### 2. (Optional) Add a configuration file
+
+To customize scan paths, output format, or strict mode, create a YAML file anywhere in your repository and pass its path to the action:
+
+```yaml
+- uses: fluidattacks/sast-action@<version>
+  id: scan
+  with:
+    scan_config_path: .github/sast-config.yaml
+```
+
+See [Configuration reference](#configuration-reference) for the full list of options.
+
+Commit and push. The scan will run automatically on the next push or pull request.
 
 ## Prerequisites
 
@@ -90,7 +86,7 @@ If you set `scanner_mode: full`, the action skips all git comparisons entirely, 
 
 ## Viewing results
 
-After the workflow runs, results are written to the path you configured in `output.file_path` (e.g. `results.sarif`).
+After the workflow runs, results are written to the path configured in `output.file_path` (e.g. `results.sarif`), or to `.fluidattacks-sast-results.sarif` when no configuration file is provided.
 
 ### SARIF file
 
@@ -112,13 +108,7 @@ You can upload the SARIF file to GitHub's Security tab so findings appear as **C
 
 ## Configuration reference
 
-The action looks for configuration in the following order:
-
-1. **`.fluidattacks.yaml`** — primary config file (recommended)
-2. **`.sast.yaml`** — legacy config file, used if `.fluidattacks.yaml` is not present
-3. **Built-in defaults** — if neither file exists, the action scans the entire repository (`sast.include: [.]`) and writes results to `.fluidattacks-sast-results.sarif`
-
-Place whichever file you use at the root of your repository.
+When `scan_config_path` is provided, the action uses that file exclusively. When omitted, the action runs with built-in defaults: scans the entire repository (`sast.include: [.]`) or only modified files (Depending on the scanner_mode selected), and writes results to `.fluidattacks-sast-results.sarif`.
 
 ### Minimal configuration
 
@@ -131,6 +121,8 @@ output:
 sast:
   include:
     - .
+  exclude:
+    - test/
 ```
 
 ### Full configuration example
@@ -160,11 +152,10 @@ sast:
     - src/vendor/
     - "**/*.test.js"
 
-  # Specific checks to enable (omit to run all checks)
-  # checks:
-  #   - F008   # SQL Injection
-  #   - F012   # Cross-Site Scripting
-  #   - F021   # Insecure File Upload
+# Specific checks to enable (omit to run all checks)
+checks:
+  - F008   # Remote command execution
+  - F027   # Insecure File Upload
 ```
 
 ### Configuration options
@@ -183,7 +174,21 @@ sast:
 
 | Input | Required | Default | Description |
 |---|---|---|---|
+| `scan_config_path` | No | — | Path to the YAML configuration file, relative to the repository root. When omitted, the action runs with built-in defaults. The job fails if the file does not exist at the given path. |
 | `scanner_mode` | No | _(auto)_ | Override the scan mode. `full` forces a full repository scan. If omitted, the mode is determined automatically based on the event and branch. |
+
+### `scan_config_path`
+
+Point the action at your configuration file:
+
+```yaml
+- uses: fluidattacks/sast-action@<version>
+  id: scan
+  with:
+    scan_config_path: .github/sast-config.yaml
+```
+
+The path is relative to the repository root. The job fails immediately if the file does not exist.
 
 ### `scanner_mode: full`
 
@@ -226,15 +231,16 @@ sast:
     - services/legacy/
 ```
 
+The included paths are only used on full scanners.
+On diff scanners, all modified files are scanned.
+
 ### Strict mode: block merges with vulnerabilities
 
-Set `strict: true` to make the action fail when vulnerabilities are found. Combined with branch protection rules, this prevents vulnerable code from being merged:
+Set `strict: true` in your configuration file and enable **Require status checks to pass before merging** in your repository's branch protection settings. This prevents vulnerable code from being merged:
 
 ```yaml
 strict: true
 ```
-
-Then, in your repository settings, enable **Require status checks to pass before merging** and select the SAST check.
 
 ### Export results as CSV
 
@@ -246,16 +252,6 @@ output:
   format: CSV
 ```
 
-Or export both:
-
-```yaml
-output:
-  file_path: results
-  format: ALL
-```
-
-This generates both `results.sarif` and `results.csv`.
-
 ## Troubleshooting
 
 ### The scan runs but no results appear in the Security tab
@@ -266,17 +262,17 @@ Make sure the "Upload SARIF" step is included in your workflow and uses `if: alw
 
 Verify that `fetch-depth: 0` is set in the `actions/checkout` step. Without full git history, the action cannot determine which files changed.
 
-### I don't have a `.fluidattacks.yaml` or `.sast.yaml` file
-
-No config file is required. When neither is present, the action uses built-in defaults: scans the entire repository and writes results to `.fluidattacks-sast-results.sarif`. Add a config file only if you need to customize paths, output format, or other options.
-
 ### The action doesn't detect my default branch
 
 The action runs `git remote show origin` to detect the default branch. This requires `fetch-depth: 0` in the checkout step so the remote metadata is available. If detection fails, verify that the `origin` remote is correctly configured in your repository.
 
 ### The pipeline fails unexpectedly
 
-If `strict: true` is set, the pipeline will fail whenever vulnerabilities are found. This is intentional. Set `strict: false` if you want the scan to report vulnerabilities without failing the pipeline.
+If `strict: true` is set in your configuration file, the pipeline will fail whenever vulnerabilities are found. This is intentional. Set `strict: false` if you want the scan to report vulnerabilities without failing the pipeline.
+
+### The job fails with "not found in repository"
+
+The path provided to `scan_config_path` does not exist in the repository. Verify the path is correct and relative to the repository root.
 
 ## More information
 
