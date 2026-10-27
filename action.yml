@@ -16,11 +16,9 @@ inputs:
     default: ''
   scanner_mode:
     description: >
-      Override the scan mode. Use "diff" to always run a differential scan
-      (changed files only) or "full" to always scan the entire repository.
-      If omitted, the mode is determined automatically: full scan on pushes
-      to the default branch, differential scan on pushes to other branches
-      and on pull requests.
+      Scan mode. "full" (default) scans the entire repository on every run.
+      "diff" scans only changed files versus the base branch or PR base —
+      requires fetch-depth: 0 in the checkout step.
     required: false
     default: ''
   group:
@@ -58,6 +56,7 @@ runs:
         SCAN_CONFIG_PATH: ${{ inputs.scan_config_path }}
         SCANNER_MODE: ${{ inputs.scanner_mode }}
         PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        GITHUB_BEFORE: ${{ github.event.before }}
 
     - name: Get changed files
       if: steps.resolve.outputs.mode == 'diff'
@@ -65,7 +64,7 @@ runs:
       uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96
       with:
         base_sha: ${{ steps.resolve.outputs.base_sha }}
-        separator: ' '
+        separator: "\n"
 
     - name: Run scan
       id: scan

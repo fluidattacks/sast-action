@@ -23,17 +23,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Required for differential scanning (default mode).
-          # Can be omitted if scanner_mode: full is set.
+          # Required for differential scanning (scanner_mode: diff).
           fetch-depth: 0
 
       - uses: fluidattacks/sast-action@<version>
         id: scan
+        with:
+          scanner_mode: diff  # recommended
 ```
 
 Replace `<version>` with the latest release tag. Check the releases page for the current version and update whenever a new one is published.
 
-Without a configuration file, the action runs with built-in defaults: scans the entire repository and writes results to `.fluidattacks-sast-results.sarif`.
+> **Recommended: run SAST in diff mode.** `scanner_mode: diff` analyzes only the files changed in each push or pull request, which keeps CI fast and focuses the results on the code under review. It requires `fetch-depth: 0` in the checkout step. Pair it with a periodic full scan (for example, the scheduled run above, which falls back to a full scan automatically) to cover the rest of the codebase.
+
+If you omit `scanner_mode`, the action runs a **full scan** of the entire repository on every run. Without a configuration file, it uses built-in defaults and writes results to `.fluidattacks-sast-results.sarif`.
 
 ### 2. (Optional) Add a configuration file
 
@@ -99,27 +102,33 @@ Authentication is best-effort: if `group` is invalid or no credentials are avail
 
 The action automatically detects your repository's default branch by running `git remote show origin`. This means it works with any branch name — `main`, `master`, `trunk`, `develop`, or whatever your team uses. You don't need to configure the branch name anywhere.
 
-### Scan types
+### Scan modes
 
-The action determines the scan type based on context:
+The action supports two scan modes, selected with `scanner_mode`:
 
-| Trigger | Scan type | What it analyzes |
+| `scanner_mode` | Scan type | What it analyzes |
 |---|---|---|
-| Push to default branch | Full scan | All files in the repository |
-| Push to any other branch | Differential scan | Only files changed vs. default branch |
-| Pull request | Differential scan | Only files changed vs. PR base branch |
+| `diff` (**recommended**) | Differential scan | Only files changed since the base (see below) |
+| `full` (default when omitted) | Full scan | All files in the repository |
 
-Both differential scan modes compare against the full default branch (not just the previous commit), so even if a push contains multiple commits, all changes relative to the default branch are analyzed. This keeps your CI fast while ensuring nothing slips through.
+In `diff` mode, the base depends on the trigger:
 
-Any other event that does not have any base line for comparison will trigger a full scan.
+| Trigger | Base for comparison |
+|---|---|
+| Pull request | PR base branch |
+| Push to the default branch | Commit before the push (`github.event.before`) |
+| Push to any other branch | Default branch (all changes since it, even across multiple commits) |
+| Any other event (scheduled, manual, ...) | No base: falls back to a full scan |
 
-You can force a full scan on every run with `scanner_mode: full` — see [Action inputs](#action-inputs).
+If no base commit is available (for example, the first push of a new branch), the action also falls back to a full scan.
+
+We recommend `diff` for push and pull request workflows: it keeps your CI fast while ensuring nothing slips through. Use `full` (or a scheduled run) for periodic audits. See [Action inputs](#action-inputs).
 
 ### Why `fetch-depth: 0`?
 
-The `actions/checkout` step uses `fetch-depth: 0` to download the full git history. This is necessary for the differential scan to compare your current changes against the PR base. Without it, the action would not have enough context to determine what changed.
+The `actions/checkout` step needs `fetch-depth: 0` to download the full git history when you use `scanner_mode: diff`. This is necessary to compare your current changes against the base. Without it, the action would not have enough context to determine what changed.
 
-If you set `scanner_mode: full`, the action skips all git comparisons entirely, so a default shallow checkout is sufficient — `fetch-depth: 0` is not needed.
+In the default full mode, the action skips all git comparisons entirely, so a default shallow checkout is sufficient.
 
 ## Viewing results
 
@@ -145,7 +154,7 @@ You can upload the SARIF file to GitHub's Security tab so findings appear as **C
 
 ## Configuration reference
 
-When `scan_config_path` is provided, the action uses that file exclusively. When omitted, the action runs with built-in defaults: scans the entire repository (`sast.include: [.]`) or only modified files (Depending on the scanner_mode selected), and writes results to `.fluidattacks-sast-results.sarif`.
+When `scan_config_path` is provided, the action uses that file exclusively. When omitted, the action runs with built-in defaults: scans the entire repository (`sast.include: [.]`) or only modified files (depending on the `scanner_mode` selected), and writes results to `.fluidattacks-sast-results.sarif`.
 
 ### Minimal configuration
 
@@ -212,7 +221,7 @@ checks:
 | Input | Required | Default | Description |
 |---|---|---|---|
 | `scan_config_path` | No | — | Path to the YAML configuration file, relative to the repository root. When omitted, the action runs with built-in defaults. The job fails if the file does not exist at the given path. |
-| `scanner_mode` | No | _(auto)_ | Override the scan mode. `full` forces a full repository scan. If omitted, the mode is determined automatically based on the event and branch. |
+| `scanner_mode` | No | `full` | Scan mode. `diff` (**recommended**) scans only changed files versus the base branch or PR base. `full` scans the entire repository (default). |
 
 ### `scan_config_path`
 
@@ -227,12 +236,29 @@ Point the action at your configuration file:
 
 The path is relative to the repository root. The job fails immediately if the file does not exist.
 
-### `scanner_mode: full`
+### `scanner_mode: diff` (recommended)
 
-Forces a full repository scan regardless of the event. Useful for scheduled audits or when you want every run to cover the entire codebase.
+Scans only the files changed relative to the base (see [Scan modes](#scan-modes)). This is the recommended way to run SAST on pushes and pull requests. Requires `fetch-depth: 0` in the checkout step so the action can compare git history.
+
+Diff mode is only active on `push` and `pull_request` events. For any other event (e.g. `schedule`, `workflow_dispatch`), the action automatically falls back to a full scan.
 
 ```yaml
-- uses: fluidattacks/sast-action@1.1.0
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+
+- uses: fluidattacks/sast-action@<version>
+  id: scan
+  with:
+    scanner_mode: diff
+```
+
+### `scanner_mode: full`
+
+The default. Scans the entire repository regardless of the event. Useful for scheduled audits or when you want every run to cover the entire codebase. No `fetch-depth: 0` needed.
+
+```yaml
+- uses: fluidattacks/sast-action@<version>
   id: scan
   with:
     scanner_mode: full
@@ -268,8 +294,8 @@ sast:
     - services/legacy/
 ```
 
-The included paths are only used on full scanners.
-On diff scanners, all modified files are scanned.
+The included paths are only used in full scans.
+In diff scans, all modified files are scanned.
 
 ### Strict mode: block merges with vulnerabilities
 
@@ -297,7 +323,7 @@ Make sure the "Upload SARIF" step is included in your workflow and uses `if: alw
 
 ### The differential scan analyzes all files instead of just changes
 
-Verify that `fetch-depth: 0` is set in the `actions/checkout` step. Without full git history, the action cannot determine which files changed.
+Verify that `fetch-depth: 0` is set in the `actions/checkout` step and that `scanner_mode: diff` is configured. Without full git history, the action cannot determine which files changed.
 
 ### The action doesn't detect my default branch
 
