@@ -53,9 +53,12 @@ with open('${CONFIG_FILE}', 'w') as f:
 # A Group token already identifies the group, so "group" is only needed for OIDC.
 build_auth_args() {
   SCAN_ARGS=()
+  # The scanner runs in a container, which does not inherit the runner's environment.
+  DOCKER_ENV=()
 
   if [[ -n "${INTEGRATES_API_TOKEN:-}" ]]; then
     echo "Authenticating with a Group token"
+    DOCKER_ENV+=(-e INTEGRATES_API_TOKEN)
     return 0
   fi
 
@@ -76,6 +79,7 @@ build_auth_args() {
 
   echo "Authenticating group '${FLUID_GROUP}' with OIDC"
   SCAN_ARGS+=(--group "${FLUID_GROUP}")
+  DOCKER_ENV+=(-e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN)
 }
 
 run_scan() {
